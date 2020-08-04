@@ -1,41 +1,46 @@
 ﻿using Mirror;
 using UnityEngine;
+using UnityEngine.AI;
 
 namespace DapperDino.Multiplayer
 {
     public class MyNetworkPlayer : NetworkBehaviour
     {
-        [SyncVar(hook = nameof(ClientHandleDisplayNameUpdated))]
-        private string displayName;
+        [Header("References")]
+        [SerializeField] private NavMeshAgent agent = null;
+
+        private Camera mainCamera;
 
         #region Server
 
-        [Command]
-        private void CmdDoSomething()
+        private void CmdMove(Vector3 position)
         {
-            // Server authority checks here
+            if (!NavMesh.SamplePosition(position, out NavMeshHit hit, 1f, NavMesh.AllAreas)) { return; }
 
-            displayName = "Random Name";
+            agent.SetDestination(hit.position);
         }
 
         #endregion
 
         #region Client
 
+        public override void OnStartAuthority()
+        {
+            mainCamera = Camera.main;
+        }
+
         [ClientCallback]
         private void Update()
         {
             if (!hasAuthority) { return; }
 
-            if (!Input.GetKeyDown(KeyCode.Space)) { return; }
+            if (!Input.GetMouseButtonDown(1)) { return; }
 
-            CmdDoSomething();
-        }
+            Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
 
-        [Client]
-        private void ClientHandleDisplayNameUpdated(string oldDisplayName, string newDisplayName)
-        {
-            // Update UI
+            if (!Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity)) { return; }
+
+            CmdMove(hit.point);
         }
 
         #endregion
